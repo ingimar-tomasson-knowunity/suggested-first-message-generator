@@ -1,0 +1,10 @@
+- download all the the country id (column: 'id'), country name (column 'english_name') pairs from our 'country' table. Store them in a csv file called, ./data/country_table.csv
+- download all the subject id (column: 'id'), country id (column: 'country_id'), subject name (column 'long_name') triplets from our 'subject' table. Store them in a csv file called, ./data/subject_table.csv
+- for each country get all the grade id (column: 'id'), name (column: 'long_name') and country id (column: 'country_id') triplets from our 'grade' table. Store them in a csv file called, ./data/grade_table.csv
+- download all the language id (column: 'id') and english names (column: 'english_name') pairs from our 'language' table. Store them in a csv file called, ./data/language_table.csv
+- make a util to create combinations made up of country_id, grade_id, subject_id. Use the table files to make these combos. For each country there should be num grades x num subjects combos, where the subjects and grades are only the ones with the matching country id. It should be num countries files of name like ./data/combos_{country_id}.csv
+- make a util to get the country, subject and grade names given a combo.
+- use gemini pro with web search to make a comma separated list of most likely topics for each combination.
+- use gemini pro to make a list of 10 most likely prompts a student would ask an LLM about each topic, with context about country and grade level. This should be done for two most likely languages spoken in the country.
+- Upload these generations to our ai_chat_suggested_first_message table with the following schema: 'uuid' (UUID), 'created_on' (TIMESTAMP), 'message' (TEXT), 'language_id' (INTEGER), 'country_id' (INTEGER), 'grade_id' (INTEGER), 'subject_id' (INTEGER). Use pydantic for this model
+- Make a main function which can be run from the terminnal with the option to upload to postgresql or not.

@@ -9,6 +9,11 @@ def ensure_data_directory():
     os.makedirs('./data', exist_ok=True)
 
 
+def ensure_combos_directory():
+    """Ensure the ./data/combos directory exists."""
+    os.makedirs('./data/combos', exist_ok=True)
+
+
 def load_countries() -> List[Country]:
     """Load countries from CSV file."""
     countries: List[Country] = []
@@ -53,13 +58,36 @@ def load_languages() -> List[Language]:
     with open('./data/language_table.csv', 'r') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            languages.append(Language(id=int(row['id']), english_name=row['english_name']))
+            if row['id']:  # Skip empty rows
+                languages.append(Language(id=int(row['id']), english_name=row['english_name']))
     return languages
+
+
+def load_popular_languages() -> Dict[int, Tuple[int, ...]]:
+    """Load popular languages by country from CSV file.
+    
+    Returns a dictionary mapping country_id to a tuple of (language_1_id, language_2_id).
+    If language_2_id doesn't exist, returns a tuple with only language_1_id.
+    """
+    popular_languages: Dict[int, Tuple[int, ...]] = {}
+    with open('./data/popular_language.csv', 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            country_id = int(row['country_id'])
+            language_1_id = int(row['language_1_id'])
+            language_2_id_str = row['language_2_id'].strip()
+            
+            if language_2_id_str:  # Only include second language if it exists and is not empty
+                language_2_id = int(language_2_id_str)
+                popular_languages[country_id] = (language_1_id, language_2_id)
+            else:
+                popular_languages[country_id] = (language_1_id,)
+    return popular_languages
 
 
 def create_combinations():
     """Create combination files for each country."""
-    ensure_data_directory()
+    ensure_combos_directory()
 
     countries = load_countries()
     subjects = load_subjects()
@@ -78,7 +106,7 @@ def create_combinations():
                     subject_id=subject.id
                 ))
 
-        filename = f'./data/combos_{country.id}.csv'
+        filename = f'./data/combos/combos_{country.id}.csv'
         with open(filename, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(['country_id', 'grade_id', 'subject_id'])
@@ -102,7 +130,7 @@ def get_names_for_combination(country_id: int, grade_id: int, subject_id: int) -
 def load_combinations_for_country(country_id: int) -> List[Combination]:
     """Load combinations for a specific country."""
     combinations: List[Combination] = []
-    filename = f'./data/combos_{country_id}.csv'
+    filename = f'./data/combos/combos_{country_id}.csv'
 
     if not os.path.exists(filename):
         return combinations
@@ -128,6 +156,17 @@ def save_csv_data(filename: str, data: List[Dict], fieldnames: List[str]):
         writer.writerows(data)
 
 
+def append_csv_data(filename: str, data: List[Dict], fieldnames: List[str], write_header: bool = False):
+    """Append data to CSV file."""
+    ensure_data_directory()
+    mode = 'w' if write_header else 'a'
+    with open(filename, mode, newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if write_header:
+            writer.writeheader()
+        writer.writerows(data)
+
+
 # ---------------------------------------------------------------------------
 # Helper lookup utilities
 # ---------------------------------------------------------------------------
@@ -149,26 +188,24 @@ def get_language_id_by_name(language_name: str) -> int:
     raise ValueError(f"Language '{language_name}' not found.")
 
 
-def get_languages_for_country(country_name: str, top_n: int = 2) -> List[str]:
-    """Return the most likely languages spoken in a country.
-
-    This is a simple placeholder based on a small hard-coded mapping. When a
-    country is not present in the mapping, the function falls back to the first
-    `top_n` languages defined in the language table (usually English).
-    """
-    mapping: Dict[str, List[str]] = {
-        "germany": ["German", "English"],
-        "united states": ["English", "Spanish"],
-        "france": ["French", "English"],
-        "spain": ["Spanish", "English"],
-        "italy": ["Italian", "English"],
-        "brazil": ["Portuguese", "English"],
-        "india": ["Hindi", "English"],
-    }
-
-    langs = mapping.get(country_name.lower())
-    if langs:
-        return langs[:top_n]
-
-    # Fallback – just return the first N languages from the language table
-    return [lang.english_name for lang in load_languages()[:top_n]]
+def get_languages_for_country(country_id: int) -> List[str]:
+    # Load popular languages mapping and language data
+    popular_languages = load_popular_languages()
+    languages = load_languages()
+    
+    # Create a lookup dictionary for language ID to name mapping
+    language_lookup = {lang.id: lang.english_name for lang in languages}
+    
+    # Check if we have popular language data for this country
+    if country_id in popular_languages:
+        language_1_id, language_2_id = popular_languages[country_id]
+        language_names = []
+        
+        # Look up the language names
+        if language_1_id in language_lookup:
+            language_names.append(language_lookup[language_1_id])
+        if language_2_id in language_lookup:
+            language_names.append(language_lookup[language_2_id])
+            
+        return language_names
+    return []

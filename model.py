@@ -8,10 +8,10 @@ class SuggestedFirstMessage(BaseModel):
     uuid: UUID
     created_on: datetime
     message: str
-    language_id: int
-    country_id: int
-    grade_id: int
-    subject_id: int
+    language_id: Optional[int]
+    country_id: Optional[int]
+    grade_id: Optional[int]
+    subject_id: Optional[int]
 
 
 class Country(BaseModel):

@@ -8,8 +8,11 @@ dependencies = [
     "click>=8.2.1",
     "google-cloud-bigquery>=3.35.1",
     "google-genai>=1.28.0",
-    "psycopg2-binary>=2.9.10",
     "pydantic>=2.11.7",
     "python-dotenv>=1.1.1",
+    "remote-resource-access",
     "tqdm>=4.67.1",
 ]
+
+[tool.uv.sources]
+remote-resource-access = { git = "https://gitlab.com/knowunity/infrastructure/remote-resource-access" }

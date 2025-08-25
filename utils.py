@@ -66,22 +66,36 @@ def load_languages() -> List[Language]:
 def load_popular_languages() -> Dict[int, Tuple[int, ...]]:
     """Load popular languages by country from CSV file.
     
-    Returns a dictionary mapping country_id to a tuple of (language_1_id, language_2_id).
-    If language_2_id doesn't exist, returns a tuple with only language_1_id.
+    Returns a dictionary mapping country_id to a tuple of language IDs.
     """
     popular_languages: Dict[int, Tuple[int, ...]] = {}
-    with open('./data/popular_language.csv', 'r') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            country_id = int(row['country_id'])
-            language_1_id = int(row['language_1_id'])
-            language_2_id_str = row['language_2_id'].strip()
-            
-            if language_2_id_str:  # Only include second language if it exists and is not empty
-                language_2_id = int(language_2_id_str)
-                popular_languages[country_id] = (language_1_id, language_2_id)
-            else:
-                popular_languages[country_id] = (language_1_id,)
+    try:
+        with open('./data/popular_language.csv', 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                country_id_str = (row.get('country_id') or '').strip()
+                if not country_id_str:
+                    continue
+                
+                country_id = int(country_id_str)
+                
+                lang_ids = []
+                # Check for language_1_id up to language_4_id
+                for i in range(1, 5):
+                    lang_id_str = (row.get(f'language_{i}_id') or '').strip()
+                    if lang_id_str:
+                        try:
+                            lang_ids.append(int(lang_id_str))
+                        except ValueError:
+                            # Safely ignore non-integer values
+                            pass
+
+                if lang_ids:
+                    popular_languages[country_id] = tuple(lang_ids)
+    except FileNotFoundError:
+        # Return an empty dictionary if the file doesn't exist
+        return {}
+        
     return popular_languages
 
 
@@ -198,14 +212,13 @@ def get_languages_for_country(country_id: int) -> List[str]:
     
     # Check if we have popular language data for this country
     if country_id in popular_languages:
-        language_1_id, language_2_id = popular_languages[country_id]
+        language_ids = popular_languages[country_id]
         language_names = []
         
-        # Look up the language names
-        if language_1_id in language_lookup:
-            language_names.append(language_lookup[language_1_id])
-        if language_2_id in language_lookup:
-            language_names.append(language_lookup[language_2_id])
+        # Look up the language names for all languages in the tuple
+        for language_id in language_ids:
+            if language_id in language_lookup:
+                language_names.append(language_lookup[language_id])
             
         return language_names
     return []

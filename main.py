@@ -75,12 +75,11 @@ def make_combinations():
 
 
 @cli.command()
-@click.option("--country", required=True, help="The country to generate topics for.")
+@click.option("--country-id", required=True, type=int, help="The country ID to generate topics for.")
 @click.option("--batch-size", default=20, help="Number of parallel requests to process.")
-def generate_all_topics(country: str, batch_size: int):
+def generate_all_topics(country_id: int, batch_size: int):
     """Generates topics for a given country using parallel processing."""
-    click.echo(f"Generating topics for {country} with batch size {batch_size}...")
-    country_id = get_country_id_by_name(country)
+    click.echo(f"Generating topics for country_id={country_id} with batch size {batch_size}...")
     combinations = load_combinations_for_country(country_id)
 
     # Prepare batch inputs
@@ -144,7 +143,7 @@ def generate_all_topics(country: str, batch_size: int):
         callback=save_topics_callback
     )
 
-    click.echo(f"Topics for {country} generated and saved.")
+    click.echo(f"Topics for country_id={country_id} generated and saved.")
 
 
 @cli.command()

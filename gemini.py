@@ -11,52 +11,39 @@ load_dotenv()
 
 gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-topics_instruction = """
-Please generate a comma separated list of {num_topics} most likely topics a student in '{grade}' in country '{country}' would study in subject '{subject}'.
-You may use the grounding tool to search the web to find information about what these topics would be (e.g. national curricula etc.)
-Ensure the topics are specific and few words long (1-4).
-Output only the comma separated list of topics, nothing else.
-"""
-
-topic_schema = types.Schema(
-    type=types.Type.OBJECT,
-    properties={
-        "topics": types.Schema(type=types.Type.ARRAY, items=types.Schema(type=types.Type.STRING)),
-    },
-    required=["topics"],
-)
-
-grounding_tool = types.Tool(
-    google_search=types.GoogleSearch()
-)
+def remove_newlines(text: str) -> str:
+    return text.replace("\n", "")
 
 def generate_topics(subject: str, grade: str, country: str, num_topics: int = 10) -> list[str]:
-    prompt = topics_instruction.format(grade=grade, country=country, subject=subject, num_topics=str(num_topics))
+    topics_instruction = """
+Please generate a comma separated list of {num_topics} most likely topics a student in '{grade}' in country '{country}' would study in subject '{subject}'.
+You must use the grounding tool to search the web to find information about what these topics would be (e.g. national curricula etc.)
+Ensure the topics are specific and 1-4 words. e.g "Quadratic Equations"
+Output only a comma separated list of topics, nothing else.
+"""
+    prompt = topics_instruction.format(grade=grade, country=country, subject=subject,num_topics=str(num_topics))
+    # Define the grounding tool
+    grounding_tool = types.Tool(
+        google_search=types.GoogleSearch()
+    )
     response = gemini_client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-2.5-pro",
         contents=[prompt],
         config=types.GenerateContentConfig(
-            temperature=0.5,
-            thinking_config=types.ThinkingConfig(
-                include_thoughts=False,
-                thinking_budget=0,
-            ),
-            response_schema=topic_schema,
-            response_mime_type="application/json",
+            tools=[grounding_tool]
         ),
     )
 
-    response_dict = json.loads(response.text)
-    topics_list = response_dict["topics"]
+    topic_list = remove_newlines(response.text).split(",")
 
-    return topics_list
+    return topic_list
 
-suggested_prompt_instruction = '''Generate {num_prompts} most likely prompts a student from {country} in grade {grade} would ask an LLM about the topic {topic}.
+suggested_prompt_instruction = '''Generate {num_prompts} prompts a student from {country} in {grade} would ask an AI assistant about the topic {topic}.
 The prompts should each be 4-7 words long.
+Each prompt should have a call to action such as "explain", "quiz me on", "essay ideas for", "help me with" etc.
 Each prompt must start with a relevant emoji.
 The prompts should not contain the word please or full stops.
-The prompts MUST be in {language}
-Output only the comma separated list of prompts, nothing else.
+The prompts MUST be in {language}.
 '''
 
 suggested_prompt_schema = types.Schema(
@@ -70,15 +57,15 @@ suggested_prompt_schema = types.Schema(
 def generate_suggested_prompts(topic: str, country: str, grade: str, language: str, num_prompts: int = 10) -> list[str]:
     prompt = suggested_prompt_instruction.format(topic=topic, country=country, grade=grade, language=language, num_prompts=str(num_prompts))
     response = gemini_client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-2.5-pro",
         contents=[prompt],
         config=types.GenerateContentConfig(
             response_schema=suggested_prompt_schema,
             response_mime_type="application/json",
-            thinking_config=types.ThinkingConfig(
-                include_thoughts=False,
-                thinking_budget=0,
-            )
+            # thinking_config=types.ThinkingConfig(
+            #     include_thoughts=False,
+            #     thinking_budget=0,
+            # )
         ),
     )
     response_dict = json.loads(response.text)
@@ -110,7 +97,6 @@ def generate_topics_batch(
             input_data['country'], 
             num_topics
         )
-    
     results = []
     with ThreadPoolExecutor(max_workers=batch_size) as executor:
         # Process all inputs in parallel batches
@@ -200,3 +186,8 @@ def generate_suggested_prompts_batch(
                     callback(index, [])
     
     return results
+
+if __name__ == "__main__":
+    topics = generate_topics("Math", "Year 11", "United Kingdom", 20)
+    for topic in topics:
+        print(topic)
